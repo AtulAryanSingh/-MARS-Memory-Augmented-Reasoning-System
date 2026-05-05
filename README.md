@@ -2,10 +2,10 @@
 
 A structured memory + reasoning engine designed to solve context loss in AI systems.
 
-## 🚨 Problem
+##  Problem
 LLMs lose context, forget important information, and return noisy results.
 
-## 💡 Solution
+##  Solution
 MARS introduces:
 - Graph-based memory
 - Intent-aware retrieval
@@ -15,7 +15,7 @@ MARS introduces:
 ## ⚙️ Architecture
 User Input → Memory → Graph → Intent → Reasoning → Answer
 
-## 🧪 Example
+##  Example
 
 Input:
 i like birds
@@ -26,5 +26,5 @@ what does user like
 Output:
 User likes birds.
 
-## 🚀 Tech
+##  Tech
 Python, FastAPI, Graph-based reasoning
