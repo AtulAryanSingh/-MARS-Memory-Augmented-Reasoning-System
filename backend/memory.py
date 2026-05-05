@@ -1,32 +1,68 @@
-from typing import Dict, List
-from models import MemoryItem
+from datetime import datetime
 
-memory_store: Dict[str, List[MemoryItem]] = {}
-
-DECAY_RATE = 0.02
-REINFORCEMENT_BOOST = 0.08
+# In-memory store (user -> list of memories)
+MEMORY_DB = {}
 
 
-def get_memory(user: str):
-    return memory_store.setdefault(user, [])
+def get_user_memory(user: str):
+    return MEMORY_DB.setdefault(user, [])
 
 
-def save_memory(user: str, new_item: MemoryItem):
-    memory = get_memory(user)
+# -------------------------
+# CREATE MEMORY
+# -------------------------
+def add_memory(user: str, text: str, importance: float):
+    memory = {
+        "text": text,
+        "importance": importance,
+        "timestamp": datetime.utcnow().isoformat(),
+        "active": True
+    }
+    get_user_memory(user).append(memory)
+    return memory
 
-    # 🔁 CHECK IF ALREADY EXISTS (MERGE LOGIC)
-    for item in memory:
-        if item.text == new_item.text:
-            item.importance = min(1.0, item.importance + REINFORCEMENT_BOOST)
-            return
 
-    memory.append(new_item)
+# -------------------------
+# READ MEMORY
+# -------------------------
+def read_memory(user: str):
+    return [m for m in get_user_memory(user) if m["active"]]
 
 
-def apply_decay(user: str):
-    memory = get_memory(user)
+# -------------------------
+# DELETE MEMORY
+# -------------------------
+def delete_memory(user: str, text: str):
+    for m in get_user_memory(user):
+        if m["text"] == text and m["active"]:
+            m["active"] = False
+    return {"status": "deleted"}
 
-    for item in memory:
-        # ⏳ decay only weak memories
-        if item.importance < 0.75:
-            item.importance = max(0.0, item.importance - DECAY_RATE)
+
+# -------------------------
+# UPDATE / CONFLICT HANDLING
+# -------------------------
+def update_memory(user: str, new_text: str):
+    """
+    Handles:
+    - 'I like birds'
+    - 'I don't like birds'
+    """
+
+    memories = get_user_memory(user)
+
+    # simple rule-based detection
+    if "don't like" in new_text.lower():
+        target = new_text.lower().replace("don't like", "").strip()
+
+        # deactivate old preference
+        for m in memories:
+            if target in m["text"].lower():
+                m["active"] = False
+
+        # store new negative memory
+        return add_memory(user, new_text, 0.9)
+
+    else:
+        # normal add
+        return add_memory(user, new_text, 0.8)
