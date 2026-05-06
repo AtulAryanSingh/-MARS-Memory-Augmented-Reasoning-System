@@ -1,69 +1,47 @@
-from graph_memory import graph_memory
-from response_builder import build_answer
+from memory import get_active_memory
 
 
-def traverse(start: str, depth: int = 3):
-    visited = set()
-    paths = []
+def answer_query(query: str, user: str = "test_user"):
 
-    def dfs(node, d):
-        if d > depth or node in visited:
-            return
-
-        visited.add(node)
-
-        for nxt in graph_memory.get(node, []):
-            paths.append((node, nxt))
-            dfs(nxt, d + 1)
-
-    dfs(start, 0)
-    return paths
-
-
-def detect_intent(query: str):
     query = query.lower()
 
-    if "what does user like" in query or "user like" in query:
-        return "preference"
+    memories = get_active_memory(user)
 
-    if "birds" in query:
-        return "entity"
+    likes = []
+    dislikes = []
 
-    return "unknown"
+    # ---------------- BUILD STATE ----------------
+    for m in memories:
+        text = m.text.lower()
 
+        if "dont like" in text or "don't like" in text:
+            entity = text.replace("i dont like", "").replace("i don't like", "").strip()
+            dislikes.append(entity)
 
-def answer_query(query: str):
+        elif "i like" in text:
+            entity = text.replace("i like", "").strip()
+            likes.append(entity)
 
-    intent = detect_intent(query)
+    # ---------------- QUERY LOGIC ----------------
 
-    if intent == "preference":
-        paths = traverse("user:u1")
+    # NEGATION TEST HANDLING (critical fix)
+    if "don't like" in query or "dont like" in query:
+        if dislikes:
+            return f"user dislikes {dislikes[0]}"
+        return "no preference"
 
-        # clean preference path only
-        filtered = [p for p in paths if "likes" in p or "user:u1" in p]
+    # DEFAULT PREFERENCE QUERY
+    if "like" in query:
 
-        return {
-            "type": "preference_query",
-            "intent": intent,
-            "paths": filtered,
-            "answer": build_answer(query, filtered)
-        }
+        # remove conflicts
+        final_likes = [x for x in likes if x not in dislikes]
 
-    if intent == "entity":
-        paths = traverse("birds")
+        if final_likes:
+            return f"user likes {final_likes[0]}"
 
-        filtered = [p for p in paths if p[0] == "birds"]
+        if dislikes:
+            return f"user dislikes {dislikes[0]}"
 
-        return {
-            "type": "entity_query",
-            "intent": intent,
-            "paths": filtered,
-            "answer": build_answer(query, filtered)
-        }
+        return "no preference"
 
-    return {
-        "type": "unknown",
-        "intent": intent,
-        "paths": [],
-        "answer": "I don't know."
-    }
+    return "unknown query"
