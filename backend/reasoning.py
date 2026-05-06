@@ -3,45 +3,47 @@ from memory import get_active_memory
 
 def answer_query(query: str, user: str = "test_user"):
 
-    query = query.lower()
-
+    query = (query or "").lower().strip()
     memories = get_active_memory(user)
 
-    likes = []
-    dislikes = []
+    if not memories:
+        return "no preference"
 
-    # ---------------- BUILD STATE ----------------
-    for m in memories:
+    # --------------------------------------
+    # STEP 1: BUILD FINAL STATE TABLE
+    # --------------------------------------
+    state = {}
+
+    for m in sorted(memories, key=lambda x: x.timestamp):
+
         text = m.text.lower()
 
+        # NEGATION = DISLIKE (ALWAYS OVERWRITE)
         if "dont like" in text or "don't like" in text:
             entity = text.replace("i dont like", "").replace("i don't like", "").strip()
-            dislikes.append(entity)
+            state[entity] = "dislike"
 
-        elif "i like" in text:
+        # LIKE
+        elif "like" in text:
             entity = text.replace("i like", "").strip()
-            likes.append(entity)
 
-    # ---------------- QUERY LOGIC ----------------
+            # ONLY set if not already overridden
+            if state.get(entity) != "dislike":
+                state[entity] = "like"
 
-    # NEGATION TEST HANDLING (critical fix)
-    if "don't like" in query or "dont like" in query:
-        if dislikes:
-            return f"user dislikes {dislikes[0]}"
-        return "no preference"
+    # --------------------------------------
+    # STEP 2: QUERY
+    # --------------------------------------
+    if "like" not in query:
+        return "unknown query"
 
-    # DEFAULT PREFERENCE QUERY
-    if "like" in query:
+    liked = [k for k, v in state.items() if v == "like"]
+    disliked = [k for k, v in state.items() if v == "dislike"]
 
-        # remove conflicts
-        final_likes = [x for x in likes if x not in dislikes]
+    if liked:
+        return f"i like {liked[0]}"
 
-        if final_likes:
-            return f"user likes {final_likes[0]}"
+    if disliked:
+        return f"i dont like {disliked[0]}"
 
-        if dislikes:
-            return f"user dislikes {dislikes[0]}"
-
-        return "no preference"
-
-    return "unknown query"
+    return "no preference"
